@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -29,7 +30,17 @@ def create_repository(
     )
 
     db.add(repository)
-    db.commit()
-    db.refresh(repository)
+
+    try:
+        db.commit()
+        db.refresh(repository)
+
+    except IntegrityError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Repository already exists.",
+        )
 
     return repository

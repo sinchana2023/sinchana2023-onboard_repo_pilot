@@ -53,3 +53,12 @@ class Repository(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    local_path: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    file_count: Mapped[int] = mapped_column(
+        default=0,
+        nullable=False,
+    )

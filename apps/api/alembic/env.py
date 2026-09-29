@@ -7,7 +7,7 @@ from alembic import context
 
 from app.core.config import settings
 from app.core.database import Base
-from app.models.repository import Repository
+from app.models import Repository, SourceFile, CodeChunk
 
 
 # Alembic Config object

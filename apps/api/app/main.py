@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.repositories import router as repositories_router
+from app.api.search import router as search_router
 
 
 app = FastAPI(
@@ -19,3 +20,4 @@ def health_check():
 
 
 app.include_router(repositories_router)
+app.include_router(search_router)

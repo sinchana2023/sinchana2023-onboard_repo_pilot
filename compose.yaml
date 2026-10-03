@@ -8,6 +8,7 @@ services:
       - ./apps/api/app:/app/app
     environment:
       DATABASE_URL: postgresql+psycopg://onboardai:onboardai@db:5432/onboardai
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       db:
         condition: service_healthy

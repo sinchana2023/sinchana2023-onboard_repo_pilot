@@ -8,6 +8,8 @@ class Settings(BaseSettings):
 
     embedding_model: str = "text-embedding-3-small"
 
+    llm_model: str = "gpt-4o-mini"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",

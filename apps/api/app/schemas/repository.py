@@ -20,3 +20,19 @@ class RepositoryResponse(BaseModel):
     model_config = {
         "from_attributes": True,
     }
+class RepositoryDetailResponse(BaseModel):
+    id: int
+    name: str
+    github_url: str
+    owner: str
+    default_branch: str | None
+    primary_language: str | None
+    status: str
+    file_count: int
+    source_file_count: int
+    chunk_count: int
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+    }

@@ -1,12 +1,19 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.code_chunk import CodeChunk
 from app.models.repository import Repository
-from app.schemas.repository import RepositoryCreate, RepositoryResponse
+from app.models.source_file import SourceFile
+from app.schemas.repository import (
+    RepositoryCreate,
+    RepositoryDetailResponse,
+    RepositoryResponse,
+)
 from app.services.github_service import GitHubService
 from app.services.ingestion_service import IngestionService
 
@@ -83,3 +90,46 @@ def create_repository(
         ) from exc
 
     return repository
+@router.get(
+    "/{repository_id}",
+    response_model=RepositoryDetailResponse,
+)
+def get_repository(
+    repository_id: int,
+    db: Session = Depends(get_db),
+):
+    repository = db.get(Repository, repository_id)
+
+    if repository is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Repository not found.",
+        )
+
+    source_file_count = db.scalar(
+        select(func.count(SourceFile.id))
+        .where(
+            SourceFile.repository_id == repository_id
+        )
+    ) or 0
+
+    chunk_count = db.scalar(
+        select(func.count(CodeChunk.id))
+        .where(
+            CodeChunk.repository_id == repository_id
+        )
+    ) or 0
+
+    return {
+        "id": repository.id,
+        "name": repository.name,
+        "github_url": repository.github_url,
+        "owner": repository.owner,
+        "default_branch": repository.default_branch,
+        "primary_language": repository.primary_language,
+        "status": repository.status,
+        "file_count": repository.file_count,
+        "source_file_count": source_file_count,
+        "chunk_count": chunk_count,
+        "created_at": repository.created_at,
+    }

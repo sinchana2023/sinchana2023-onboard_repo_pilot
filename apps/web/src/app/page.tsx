@@ -1,17 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 
-import {
-  createRepository,
-  RepositoryCreateResponse,
-} from "@/lib/api";
+import { createRepository } from "@/lib/api";
 
 export default function Home() {
-  const [githubUrl, setGithubUrl] = useState("");
-  const [repository, setRepository] =
-    useState<RepositoryCreateResponse | null>(null);
+  const router = useRouter();
 
+  const [githubUrl, setGithubUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,7 +18,6 @@ export default function Home() {
     event.preventDefault();
 
     setError("");
-    setRepository(null);
 
     if (!githubUrl.trim()) {
       setError("Enter a GitHub repository URL.");
@@ -31,18 +27,18 @@ export default function Home() {
     setLoading(true);
 
     try {
-      const result = await createRepository(
+      const repository = await createRepository(
         githubUrl.trim()
       );
 
-      setRepository(result);
+      router.push(`/repositories/${repository.id}`);
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : "Something went wrong."
       );
-    } finally {
+
       setLoading(false);
     }
   }
@@ -118,34 +114,6 @@ export default function Home() {
                 </div>
               )}
             </form>
-
-            {repository && (
-              <div className="mt-6 rounded-2xl border border-emerald-900 bg-emerald-950/30 p-6">
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-slate-400">
-                      Repository ready
-                    </p>
-
-                    <h2 className="mt-1 text-2xl font-semibold">
-                      {repository.name}
-                    </h2>
-                  </div>
-
-                  <span className="rounded-full bg-emerald-900/60 px-3 py-1 text-xs font-medium text-emerald-300">
-                    {repository.status}
-                  </span>
-                </div>
-
-                <p className="text-sm text-slate-400">
-                  {repository.owner}
-                </p>
-
-                <p className="mt-4 break-all text-sm text-slate-300">
-                  {repository.github_url}
-                </p>
-              </div>
-            )}
           </div>
         </section>
 

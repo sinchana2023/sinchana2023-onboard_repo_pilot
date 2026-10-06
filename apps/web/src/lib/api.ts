@@ -48,3 +48,41 @@ export async function createRepository(
 
   return response.json();
 }
+export interface RepositoryDetail {
+  id: number;
+  name: string;
+  github_url: string;
+  owner: string;
+  default_branch: string | null;
+  primary_language: string | null;
+  status: string;
+  file_count: number;
+  source_file_count: number;
+  chunk_count: number;
+  created_at: string;
+}
+export async function getRepository(
+  repositoryId: number
+): Promise<RepositoryDetail> {
+  const response = await fetch(
+    `${API_URL}/api/v1/repositories/${repositoryId}`
+  );
+
+  if (!response.ok) {
+    let message = "Failed to load repository.";
+
+    try {
+      const data = await response.json();
+
+      if (typeof data?.detail === "string") {
+        message = data.detail;
+      }
+    } catch {
+      // Keep default error message.
+    }
+
+    throw new Error(message);
+  }
+
+  return response.json();
+}

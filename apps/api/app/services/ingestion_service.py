@@ -3,14 +3,32 @@
 from sqlalchemy.orm import Session
 
 from app.models.repository import Repository
-from app.services.code_processing_service import CodeProcessingService
+from app.services.code_processing_service import (
+    CodeProcessingService,
+)
+from app.services.embedding_processor import (
+    EmbeddingProcessor,
+)
 from app.services.file_scanner import FileScanner
-from app.services.repository_analyzer import RepositoryAnalyzer
-from app.services.repository_service import RepositoryService
+from app.services.repository_analyzer import (
+    RepositoryAnalyzer,
+)
+from app.services.repository_service import (
+    RepositoryService,
+)
 
 
 class IngestionService:
-    """Coordinates cloning, analysis, scanning, chunking, and persistence."""
+    """Coordinate repository ingestion and embedding."""
+
+    def __init__(
+        self,
+        embedding_processor: EmbeddingProcessor | None = None,
+    ) -> None:
+        self.embedding_processor = (
+            embedding_processor
+            or EmbeddingProcessor()
+        )
 
     def ingest(
         self,
@@ -18,7 +36,7 @@ class IngestionService:
         db: Session,
     ) -> Repository:
         """
-        Clone, analyze, process, and persist a repository.
+        Clone, analyze, process, embed, and persist a repository.
 
         The workflow is:
 
@@ -28,7 +46,8 @@ class IngestionService:
         4. Scan supported source files
         5. Persist repository metadata
         6. Create SourceFile and CodeChunk records
-        7. Mark repository as completed
+        7. Generate embeddings for every code chunk
+        8. Mark repository as completed
         """
 
         repository.status = "processing"
@@ -36,35 +55,45 @@ class IngestionService:
         db.refresh(repository)
 
         try:
-            # 1. Clone repository
-            repository_path = RepositoryService.clone_repository(
-                owner=repository.owner,
-                repository=repository.name,
+            # 1. Clone repository.
+            repository_path = (
+                RepositoryService.clone_repository(
+                    owner=repository.owner,
+                    repository=repository.name,
+                )
             )
 
-            # 2. Analyze repository
+            # 2. Analyze repository.
             analysis = RepositoryAnalyzer.analyze(
                 repository_path
             )
 
-            # 3. Scan supported source files
+            # 3. Scan supported source files.
             files = FileScanner.scan(
                 repository_path
             )
 
-            # 4. Store repository metadata
+            # 4. Store repository metadata.
             repository.local_path = str(repository_path)
             repository.file_count = len(files)
-            repository.primary_language = analysis["primary_language"]
+            repository.primary_language = analysis[
+                "primary_language"
+            ]
 
-            # 5. Process source files into chunks
+            # 5. Process source files into chunks.
             CodeProcessingService.process_repository(
                 repository_id=repository.id,
                 repository_path=repository_path,
                 db=db,
             )
 
-            # 6. Mark ingestion as complete
+            # 6. Generate and store embeddings.
+            self.embedding_processor.embed_repository(
+                repository_id=repository.id,
+                db=db,
+            )
+
+            # 7. Mark ingestion as complete.
             repository.status = "completed"
 
             db.commit()
@@ -73,10 +102,8 @@ class IngestionService:
             return repository
 
         except Exception:
-            # Roll back any partially completed database transaction.
             db.rollback()
 
-            # Record the failure state.
             repository.status = "failed"
 
             db.commit()

@@ -86,3 +86,53 @@ export async function getRepository(
 
   return response.json();
 }
+export interface AskSource {
+  path: string;
+  start_line: number;
+  end_line: number;
+  score: number;
+}
+
+export interface AskResponse {
+  answer: string;
+  sources: AskSource[];
+}
+
+export async function askRepository(
+  repositoryId: number,
+  question: string,
+  topK = 5
+): Promise<AskResponse> {
+  const response = await fetch(
+    `${API_URL}/api/v1/repositories/${repositoryId}/ask`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        question,
+        top_k: topK,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    let message = "Failed to ask about this repository.";
+
+    try {
+      const data = await response.json();
+
+      if (typeof data?.detail === "string") {
+        message = data.detail;
+      }
+    } catch {
+      // Keep the default message.
+    }
+
+    throw new Error(message);
+  }
+
+  return response.json();
+}

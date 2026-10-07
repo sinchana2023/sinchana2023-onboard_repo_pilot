@@ -9,7 +9,7 @@ from app.services.embedding_service import EmbeddingService
 class RetrievalService:
     """Retrieve repository chunks using semantic similarity."""
 
-    MIN_SIMILARITY = 0.35
+    MIN_SIMILARITY = 0.20
 
     def __init__(
         self,

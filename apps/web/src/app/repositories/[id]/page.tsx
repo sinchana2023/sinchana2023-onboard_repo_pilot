@@ -1,7 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getRepository, RepositoryDetail } from "@/lib/api";
+import Link from "next/link";
+import {
+  FormEvent,
+  use,
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  askRepository,
+  AskResponse,
+  getRepository,
+  RepositoryDetail,
+} from "@/lib/api";
 
 interface RepositoryPageProps {
   params: Promise<{
@@ -12,19 +24,32 @@ interface RepositoryPageProps {
 export default function RepositoryPage({
   params,
 }: RepositoryPageProps) {
+  const { id } = use(params);
+  const repositoryId = Number(id);
+
   const [repository, setRepository] =
     useState<RepositoryDetail | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] =
+    useState<AskResponse | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [askError, setAskError] = useState("");
+
   useEffect(() => {
     async function loadRepository() {
-      try {
-        const { id } = await params;
+      if (!Number.isInteger(repositoryId)) {
+        setError("Invalid repository ID.");
+        setLoading(false);
+        return;
+      }
 
+      try {
         const result = await getRepository(
-          Number(id)
+          repositoryId
         );
 
         setRepository(result);
@@ -40,7 +65,39 @@ export default function RepositoryPage({
     }
 
     loadRepository();
-  }, [params]);
+  }, [repositoryId]);
+
+  async function handleAsk(
+    event: FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+
+    if (!question.trim()) {
+      return;
+    }
+
+    setAskError("");
+    setAnswer(null);
+    setAsking(true);
+
+    try {
+      const result = await askRepository(
+        repositoryId,
+        question.trim(),
+        5
+      );
+
+      setAnswer(result);
+    } catch (err) {
+      setAskError(
+        err instanceof Error
+          ? err.message
+          : "Failed to get an answer."
+      );
+    } finally {
+      setAsking(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -66,6 +123,13 @@ export default function RepositoryPage({
             <p className="mt-2 text-sm text-red-300">
               {error || "Repository not found."}
             </p>
+
+            <Link
+              href="/"
+              className="mt-5 inline-block text-sm text-blue-400 transition hover:text-blue-300"
+            >
+              ← Return to homepage
+            </Link>
           </div>
         </div>
       </main>
@@ -80,12 +144,12 @@ export default function RepositoryPage({
             OnboardAI
           </div>
 
-          <a
+          <Link
             href="/"
             className="text-sm text-slate-400 transition hover:text-white"
           >
             ← Analyze another repository
-          </a>
+          </Link>
         </header>
 
         <section className="mt-12">
@@ -100,8 +164,7 @@ export default function RepositoryPage({
               </h1>
 
               <p className="mt-2 text-slate-400">
-                {repository.owner} /{" "}
-                {repository.name}
+                {repository.owner} / {repository.name}
               </p>
             </div>
 
@@ -144,39 +207,116 @@ export default function RepositoryPage({
               href={repository.github_url}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 block break-all text-blue-400 hover:text-blue-300"
+              className="mt-2 block break-all text-blue-400 transition hover:text-blue-300"
             >
               {repository.github_url}
             </a>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-2">
-            <button
-              className="rounded-2xl border border-blue-800 bg-blue-950/30 p-6 text-left transition hover:border-blue-500"
-            >
+          <div className="mt-8 rounded-2xl border border-blue-900 bg-slate-900 p-6">
+            <div className="mb-5">
               <p className="text-lg font-semibold">
                 Ask OnboardAI
               </p>
 
               <p className="mt-2 text-sm text-slate-400">
                 Ask questions about the architecture,
-                code, and implementation.
+                implementation, and behavior of this
+                repository.
               </p>
-            </button>
+            </div>
 
-            <button
-              className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-left transition hover:border-slate-600"
-            >
-              <p className="text-lg font-semibold">
-                Search Code
-              </p>
+            <form onSubmit={handleAsk}>
+              <label
+                htmlFor="repository-question"
+                className="sr-only"
+              >
+                Repository question
+              </label>
 
-              <p className="mt-2 text-sm text-slate-400">
-                Search the repository using semantic
-                retrieval.
-              </p>
-            </button>
+              <textarea
+                id="repository-question"
+                value={question}
+                onChange={(event) =>
+                  setQuestion(event.target.value)
+                }
+                placeholder="Where is authentication implemented?"
+                rows={4}
+                className="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 p-4 text-sm text-white outline-none transition focus:border-blue-500"
+              />
+
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-slate-500">
+                  Answers are grounded in indexed repository
+                  content.
+                </p>
+
+                <button
+                  type="submit"
+                  disabled={
+                    asking || !question.trim()
+                  }
+                  className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {asking ? "Thinking..." : "Ask"}
+                </button>
+              </div>
+            </form>
+
+            {askError && (
+              <div className="mt-5 rounded-xl border border-red-900 bg-red-950/30 p-4 text-sm text-red-300">
+                {askError}
+              </div>
+            )}
           </div>
+
+          {answer && (
+            <div className="mt-6 space-y-6">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+                <p className="text-sm font-medium text-slate-400">
+                  OnboardAI
+                </p>
+
+                <div className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-200">
+                  {answer.answer}
+                </div>
+              </div>
+
+              {answer.sources.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Sources
+                  </p>
+
+                  <div className="mt-3 space-y-3">
+                    {answer.sources.map(
+                      (source, index) => (
+                        <div
+                          key={`${source.path}-${source.start_line}-${index}`}
+                          className="rounded-xl border border-slate-800 bg-slate-900 p-4"
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <p className="truncate text-sm font-medium text-blue-400">
+                              {source.path}
+                            </p>
+
+                            <span className="shrink-0 text-xs text-slate-500">
+                              {source.score.toFixed(2)}
+                            </span>
+                          </div>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            Lines {source.start_line}–
+                            {source.end_line}
+                          </p>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </section>
       </div>
     </main>
